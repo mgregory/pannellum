@@ -641,14 +641,15 @@ function onDocumentMouseDown(event) {
     // Log pitch / yaw of mouse click when debugging / placing hot spots
     if (config.hotSpotDebug) {
         var coords = mouseEventToCoords(event);
-        var pitch = parseFloat(Math.round(coords[0] * 100) / 100).toFixed(2);
-        pitch = coords[0].toFixed(2);
         //pitch = coords[0];
+    	// round to 2 decimal places for easier legibility
+        var pitch = parseFloat(Math.round(coords[0] * 100) / 100).toFixed(2);
         var yaw = parseFloat(Math.round(coords[1] * 100) / 100).toFixed(2);
-        var cPitch = parseFloat(Math.round(config.pitch * 100) / 100).toFixed(2);
-        var cYaw = parseFloat(Math.round(config.yaw * 100) / 100).toFixed(2);
+        var centerPitch = parseFloat(Math.round(config.pitch * 100) / 100).toFixed(2);
+        var centerYaw = parseFloat(Math.round(config.yaw * 100) / 100).toFixed(2);
+        
         console.log('Pitch: ' + pitch + ', Yaw: ' + yaw + ', Center Pitch: ' +
-            cPitch + ', Center Yaw: ' + cYaw + ', HFOV: ' + config.hfov);
+            centerPitch + ', Center Yaw: ' + centerYaw + ', HFOV: ' + config.hfov);
 //         console.log('Pitch: ' + coords[0] + ', Yaw: ' + coords[1] + ', Center Pitch: ' +
 //             config.pitch + ', Center Yaw: ' + config.yaw + ', HFOV: ' + config.hfov);
     }

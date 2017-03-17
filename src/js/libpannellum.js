@@ -67,7 +67,7 @@ function Renderer(container) {
             _imageType = 'equirectangular';
 
         if (_imageType != 'equirectangular' && _imageType != 'cubemap' &&
-            _imageType != 'multires') {
+            _imageType != 'multires' && _imageType != 'photo') {
             console.log('Error: invalid image type specified!');
             throw {type: 'config error'};
         }
@@ -240,7 +240,7 @@ function Renderer(container) {
         
         // Make sure image isn't too big
         var width, maxWidth;
-        if (imageType == 'equirectangular') {
+        if (imageType == 'equirectangular' || imageType == 'photo') {
             width = Math.max(image.width, image.height);
             maxWidth = gl.getParameter(gl.MAX_TEXTURE_SIZE);
             if (width > maxWidth) {
@@ -270,6 +270,9 @@ function Renderer(container) {
         // Create vertex shader
         vs = gl.createShader(gl.VERTEX_SHADER);
         var vertexSrc = v;
+        if (imageType == 'photo') {
+        }
+
         if (imageType == 'multires') {
             vertexSrc = vMulti;
         }
@@ -279,7 +282,9 @@ function Renderer(container) {
         // Create fragment shader
         fs = gl.createShader(gl.FRAGMENT_SHADER);
         var fragmentSrc = fragEquirectangular;
-        if (imageType == 'cubemap') {
+        if (imageType == 'photo') {
+        	fragmentSrc = fragPhoto;
+        } else if (imageType == 'cubemap') {
             glBindType = gl.TEXTURE_CUBE_MAP;
             fragmentSrc = fragCube;
         } else if (imageType == 'multires') {
@@ -312,62 +317,78 @@ function Renderer(container) {
         gl.enableVertexAttribArray(program.texCoordLocation);
 
         if (imageType != 'multires') {
-            // Provide texture coordinates for rectangle
-            if (!texCoordBuffer)
-                texCoordBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,1,1,1,-1,-1,1,1,-1,-1,-1]), gl.STATIC_DRAW);
-            gl.vertexAttribPointer(program.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+			if (imageType == 'photo') {
+					// this matirx will convert from pixels to clip space
+			  var matrix = m4.orthographic(0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
+ 
+ var dstX = 0;
+ var dstY = 0;
+			  // this matrix will translate our quad to dstX, dstY
+			  matrix = m4.translate(matrix, dstX, dstY, 0);
+ 
+			  // this matrix will scale our 1 unit quad
+			  // from 1 unit to texWidth, texHeight units
+			  matrix = m4.scale(matrix, texWidth, texHeight, 1);
+ 
+			  // Set the matrix.
+			  gl.uniformMatrix4fv(matrixLocation, false, matrix);	
+			} else {
+				// Provide texture coordinates for rectangle
+				if (!texCoordBuffer)
+					texCoordBuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,1,1,1,-1,-1,1,1,-1,-1,-1]), gl.STATIC_DRAW);
+				gl.vertexAttribPointer(program.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
-            // Pass aspect ratio
-            program.aspectRatio = gl.getUniformLocation(program, 'u_aspectRatio');
-            gl.uniform1f(program.aspectRatio, canvas.width / canvas.height);
+				// Pass aspect ratio
+				program.aspectRatio = gl.getUniformLocation(program, 'u_aspectRatio');
+				gl.uniform1f(program.aspectRatio, canvas.width / canvas.height);
 
-            // Locate psi, theta, focal length, horizontal extent, vertical extent, and vertical offset
-            program.psi = gl.getUniformLocation(program, 'u_psi');
-            program.theta = gl.getUniformLocation(program, 'u_theta');
-            program.f = gl.getUniformLocation(program, 'u_f');
-            program.h = gl.getUniformLocation(program, 'u_h');
-            program.v = gl.getUniformLocation(program, 'u_v');
-            program.vo = gl.getUniformLocation(program, 'u_vo');
-            program.rot = gl.getUniformLocation(program, 'u_rot');
+				// Locate psi, theta, focal length, horizontal extent, vertical extent, and vertical offset
+				program.psi = gl.getUniformLocation(program, 'u_psi');
+				program.theta = gl.getUniformLocation(program, 'u_theta');
+				program.f = gl.getUniformLocation(program, 'u_f');
+				program.h = gl.getUniformLocation(program, 'u_h');
+				program.v = gl.getUniformLocation(program, 'u_v');
+				program.vo = gl.getUniformLocation(program, 'u_vo');
+				program.rot = gl.getUniformLocation(program, 'u_rot');
 
-            // Pass horizontal extent, vertical extent, and vertical offset
-            gl.uniform1f(program.h, haov / (Math.PI * 2.0));
-            gl.uniform1f(program.v, vaov / Math.PI);
-            gl.uniform1f(program.vo, voffset / Math.PI * 2);
+				// Pass horizontal extent, vertical extent, and vertical offset
+				gl.uniform1f(program.h, haov / (Math.PI * 2.0));
+				gl.uniform1f(program.v, vaov / Math.PI);
+				gl.uniform1f(program.vo, voffset / Math.PI * 2);
 
-            // Set background color
-            if (imageType == 'equirectangular') {
-                program.backgroundColor = gl.getUniformLocation(program, 'u_backgroundColor');
-                var color = params.backgroundColor ? params.backgroundColor : [0, 0, 0];
-                gl.uniform4fv(program.backgroundColor, color.concat([1]));
-            }
+				// Set background color
+				if (imageType == 'equirectangular') {
+					program.backgroundColor = gl.getUniformLocation(program, 'u_backgroundColor');
+					var color = params.backgroundColor ? params.backgroundColor : [0, 0, 0];
+					gl.uniform4fv(program.backgroundColor, color.concat([1]));
+				}
 
-            // Create texture
-            program.texture = gl.createTexture();
-            gl.bindTexture(glBindType, program.texture);
+				// Create texture
+				program.texture = gl.createTexture();
+				gl.bindTexture(glBindType, program.texture);
 
-            // Upload images to texture depending on type
-            if (imageType == 'cubemap') {
-                // Load all six sides of the cube map
-                gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[1]);
-                gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[3]);
-                gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[4]);
-                gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[5]);
-                gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[0]);
-                gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[2]);
-            } else {
-                // Upload image to the texture
-                gl.texImage2D(glBindType, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
-            }
+				// Upload images to texture depending on type
+				if (imageType == 'cubemap') {
+					// Load all six sides of the cube map
+					gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[1]);
+					gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[3]);
+					gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[4]);
+					gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[5]);
+					gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[0]);
+					gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[2]);
+				} else {
+					// Upload image to the texture
+					gl.texImage2D(glBindType, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+				}
 
-            // Set parameters for rendering any size
-            gl.texParameteri(glBindType, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(glBindType, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(glBindType, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(glBindType, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-
+				// Set parameters for rendering any size
+				gl.texParameteri(glBindType, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(glBindType, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(glBindType, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				gl.texParameteri(glBindType, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			}
         } else {
             // Look up vertex coordinates location
             program.vertPosLocation = gl.getAttribLocation(program, 'a_vertCoord');
@@ -1275,6 +1296,98 @@ var fragMulti = [
 //    'gl_FragColor = u_color;',
 '}'
 ].join('');
+
+
+
+var fragPhoto = fragEquiCubeBase + [
+    // Wrap image
+    'lambda = mod(lambda + PI, PI * 2.0) - PI;',
+
+    // Map texture to sphere
+//    'vec2 coord = vec2(lambda / PI, phi / (PI / 2.0));',
+	// same coordinate as input
+//     'vec2 coord = v_texCoord;',
+
+
+    'vec2 coord = vec2(v_texCoord.x, v_texCoord.y );',
+
+    // Look up color from texture
+    // Map from [-1,1] to [0,1] and flip y-axis
+    'if(coord.x < -u_h || coord.x > u_h || coord.y < -u_v + u_vo || coord.y > u_v + u_vo)',
+        'gl_FragColor = u_backgroundColor;',
+    'else',
+        'gl_FragColor = texture2D(u_image, vec2((coord.x + u_h) / (u_h * 2.0), (-coord.y + u_v + u_vo) / (u_v * 2.0)));',
+'}'
+].join('\n');
+
+var m4 = {
+  translate: function(tx, ty, tz) {
+    return [
+       1,  0,  0,  0,
+       0,  1,  0,  0,
+       0,  0,  1,  0,
+       tx, ty, tz, 1,
+    ];
+  },
+ 
+  xRotation: function(angleInRadians) {
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+ 
+    return [
+      1, 0, 0, 0,
+      0, c, s, 0,
+      0, -s, c, 0,
+      0, 0, 0, 1,
+    ];
+  },
+ 
+  yRotation: function(angleInRadians) {
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+ 
+    return [
+      c, 0, -s, 0,
+      0, 1, 0, 0,
+      s, 0, c, 0,
+      0, 0, 0, 1,
+    ];
+  },
+ 
+  zRotation: function(angleInRadians) {
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+ 
+    return [
+       c, s, 0, 0,
+      -s, c, 0, 0,
+       0, 0, 1, 0,
+       0, 0, 0, 1,
+    ];
+  },
+ 
+  scaling: function(sx, sy, sz) {
+    return [
+      sx, 0,  0,  0,
+      0, sy,  0,  0,
+      0,  0, sz,  0,
+      0,  0,  0,  1,
+    ];
+	},
+    
+    orthographic: function(left, right, bottom, top, near, far) {
+    return [
+      2 / (right - left), 0, 0, 0,
+      0, 2 / (top - bottom), 0, 0,
+      0, 0, 2 / (near - far), 0,
+ 
+      (left + right) / (left - right),
+      (bottom + top) / (bottom - top),
+      (near + far) / (near - far),
+      1,
+    ];
+  },
+};
 
 return {
     renderer: function(container, image, imagetype, dynamic) {
