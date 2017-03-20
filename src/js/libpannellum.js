@@ -271,6 +271,7 @@ function Renderer(container) {
         vs = gl.createShader(gl.VERTEX_SHADER);
         var vertexSrc = v;
         if (imageType == 'photo') {
+//            vertexSrc = vPhoto;
         }
 
         if (imageType == 'multires') {
@@ -284,6 +285,7 @@ function Renderer(container) {
         var fragmentSrc = fragEquirectangular;
         if (imageType == 'photo') {
         	fragmentSrc = fragPhoto;
+//            fragmentSrc = fragMulti;
         } else if (imageType == 'cubemap') {
             glBindType = gl.TEXTURE_CUBE_MAP;
             fragmentSrc = fragCube;
@@ -317,78 +319,63 @@ function Renderer(container) {
         gl.enableVertexAttribArray(program.texCoordLocation);
 
         if (imageType != 'multires') {
-			if (imageType == 'photo') {
-					// this matirx will convert from pixels to clip space
-			  var matrix = m4.orthographic(0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
- 
- var dstX = 0;
- var dstY = 0;
-			  // this matrix will translate our quad to dstX, dstY
-			  matrix = m4.translate(matrix, dstX, dstY, 0);
- 
-			  // this matrix will scale our 1 unit quad
-			  // from 1 unit to texWidth, texHeight units
-			  matrix = m4.scale(matrix, texWidth, texHeight, 1);
- 
-			  // Set the matrix.
-			  gl.uniformMatrix4fv(matrixLocation, false, matrix);	
-			} else {
-				// Provide texture coordinates for rectangle
-				if (!texCoordBuffer)
-					texCoordBuffer = gl.createBuffer();
-				gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,1,1,1,-1,-1,1,1,-1,-1,-1]), gl.STATIC_DRAW);
-				gl.vertexAttribPointer(program.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+//  			if (imageType == 'photo') {
+//  			}
+			// Provide texture coordinates for rectangle
+			if (!texCoordBuffer)
+				texCoordBuffer = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,1,1,1,-1,-1,1,1,-1,-1,-1]), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(program.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
-				// Pass aspect ratio
-				program.aspectRatio = gl.getUniformLocation(program, 'u_aspectRatio');
-				gl.uniform1f(program.aspectRatio, canvas.width / canvas.height);
+			// Pass aspect ratio
+			program.aspectRatio = gl.getUniformLocation(program, 'u_aspectRatio');
+			gl.uniform1f(program.aspectRatio, canvas.width / canvas.height);
 
-				// Locate psi, theta, focal length, horizontal extent, vertical extent, and vertical offset
-				program.psi = gl.getUniformLocation(program, 'u_psi');
-				program.theta = gl.getUniformLocation(program, 'u_theta');
-				program.f = gl.getUniformLocation(program, 'u_f');
-				program.h = gl.getUniformLocation(program, 'u_h');
-				program.v = gl.getUniformLocation(program, 'u_v');
-				program.vo = gl.getUniformLocation(program, 'u_vo');
-				program.rot = gl.getUniformLocation(program, 'u_rot');
+			// Locate psi, theta, focal length, horizontal extent, vertical extent, and vertical offset
+			program.psi = gl.getUniformLocation(program, 'u_psi');
+			program.theta = gl.getUniformLocation(program, 'u_theta');
+			program.f = gl.getUniformLocation(program, 'u_f');
+			program.h = gl.getUniformLocation(program, 'u_h');
+			program.v = gl.getUniformLocation(program, 'u_v');
+			program.vo = gl.getUniformLocation(program, 'u_vo');
+			program.rot = gl.getUniformLocation(program, 'u_rot');
 
-				// Pass horizontal extent, vertical extent, and vertical offset
-				gl.uniform1f(program.h, haov / (Math.PI * 2.0));
-				gl.uniform1f(program.v, vaov / Math.PI);
-				gl.uniform1f(program.vo, voffset / Math.PI * 2);
+			// Pass horizontal extent, vertical extent, and vertical offset
+			gl.uniform1f(program.h, haov / (Math.PI * 2.0));
+			gl.uniform1f(program.v, vaov / Math.PI);
+			gl.uniform1f(program.vo, voffset / Math.PI * 2);
 
-				// Set background color
-				if (imageType == 'equirectangular') {
-					program.backgroundColor = gl.getUniformLocation(program, 'u_backgroundColor');
-					var color = params.backgroundColor ? params.backgroundColor : [0, 0, 0];
-					gl.uniform4fv(program.backgroundColor, color.concat([1]));
-				}
-
-				// Create texture
-				program.texture = gl.createTexture();
-				gl.bindTexture(glBindType, program.texture);
-
-				// Upload images to texture depending on type
-				if (imageType == 'cubemap') {
-					// Load all six sides of the cube map
-					gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[1]);
-					gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[3]);
-					gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[4]);
-					gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[5]);
-					gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[0]);
-					gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[2]);
-				} else {
-					// Upload image to the texture
-					gl.texImage2D(glBindType, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
-				}
-
-				// Set parameters for rendering any size
-				gl.texParameteri(glBindType, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-				gl.texParameteri(glBindType, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-				gl.texParameteri(glBindType, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-				gl.texParameteri(glBindType, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			// Set background color
+			if (imageType == 'equirectangular') {
+				program.backgroundColor = gl.getUniformLocation(program, 'u_backgroundColor');
+				var color = params.backgroundColor ? params.backgroundColor : [0, 0, 0];
+				gl.uniform4fv(program.backgroundColor, color.concat([1]));
 			}
+
+			// Create texture
+			program.texture = gl.createTexture();
+			gl.bindTexture(glBindType, program.texture);
+
+			// Upload images to texture depending on type
+			if (imageType == 'cubemap') {
+				// Load all six sides of the cube map
+				gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[1]);
+				gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[3]);
+				gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[4]);
+				gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[5]);
+				gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[0]);
+				gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image[2]);
+			} else {
+				// Upload image to the texture
+				gl.texImage2D(glBindType, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
+			}
+
+			// Set parameters for rendering any size
+			gl.texParameteri(glBindType, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(glBindType, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(glBindType, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(glBindType, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         } else {
             // Look up vertex coordinates location
             program.vertPosLocation = gl.getAttribLocation(program, 'a_vertCoord');
@@ -1185,6 +1172,22 @@ function Renderer(container) {
     }
 }
 
+// Vertex shader for photo
+var vPhoto = [
+'attribute vec4 a_position;',
+'attribute vec2 a_texcoord;',
+ 
+'uniform mat4 u_matrix;',
+'uniform mat4 u_textureMatrix;',
+ 
+'varying vec2 v_texcoord;',
+ 
+'void main() {',
+   'gl_Position = u_matrix * a_position;',
+   'v_texcoord = (u_textureMatrix * vec4(a_texcoord, 0, 1)).xy;',
+'} ',
+].join('');
+
 // Vertex shader for equirectangular and cube
 var v = [
 'attribute vec2 a_texCoord;',
@@ -1217,6 +1220,9 @@ var vMulti = [
     'v_texCoord = a_texCoord;',
 '}'
 ].join('');
+
+ 
+
 
 // Fragment shader
 var fragEquiCubeBase = [
@@ -1298,18 +1304,13 @@ var fragMulti = [
 ].join('');
 
 
-
+// Fragment shader
 var fragPhoto = fragEquiCubeBase + [
     // Wrap image
     'lambda = mod(lambda + PI, PI * 2.0) - PI;',
 
-    // Map texture to sphere
-//    'vec2 coord = vec2(lambda / PI, phi / (PI / 2.0));',
-	// same coordinate as input
-//     'vec2 coord = v_texCoord;',
-
-
-    'vec2 coord = vec2(v_texCoord.x, v_texCoord.y );',
+//    'vec2 coord = v_texCoord;',
+    'vec2 coord = vec2(v_texCoord.x / u_f + u_psi, v_texCoord.y / u_f + u_theta);',
 
     // Look up color from texture
     // Map from [-1,1] to [0,1] and flip y-axis
@@ -1317,8 +1318,84 @@ var fragPhoto = fragEquiCubeBase + [
         'gl_FragColor = u_backgroundColor;',
     'else',
         'gl_FragColor = texture2D(u_image, vec2((coord.x + u_h) / (u_h * 2.0), (-coord.y + u_v + u_vo) / (u_v * 2.0)));',
+
 '}'
 ].join('\n');
+
+// Fragment Shader
+// var fragPhoto = [
+// 'varying mediump vec2 v_texCoord;',
+// 'uniform sampler2D u_sampler;',
+// 'uniform mediump vec4 u_color;',
+// 
+// 'void main(void) {',
+//     Look up color from texture
+//     'gl_FragColor = texture2D(u_sampler, v_texCoord);',
+//    'gl_FragColor = u_color;',
+// '}'
+// ].join('');
+
+
+// Fragment Shader
+// var fragPhoto = [
+// 	'precision mediump float;',
+//   
+// 	'varying vec2 v_texcoord;',
+//   
+// 	'uniform sampler2D u_texture;',
+//   
+// 	'void main() {',
+// 	'gl_FragColor = texture2D(u_texture, v_texcoord);',
+// 	'}'
+// ].join('');
+
+
+// Code from WebGLFundamentals.org
+
+var m3 = {
+  identity: function() {
+    return [
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1,
+    ];
+  },
+  
+  translation: function(tx, ty) {
+    return [
+      1, 0, 0,
+      0, 1, 0,
+      tx, ty, 1,
+    ];
+  },
+ 
+  rotation: function(angleInRadians) {
+    var c = Math.cos(angleInRadians);
+    var s = Math.sin(angleInRadians);
+    return [
+      c,-s, 0,
+      s, c, 0,
+      0, 0, 1,
+    ];
+  },
+ 
+  scaling: function(sx, sy) {
+    return [
+      sx, 0, 0,
+      0, sy, 0,
+      0, 0, 1,
+    ];
+  },
+  
+  projection: function(width, height) {
+    // Note: This matrix flips the Y axis so that 0 is at the top.
+    return [
+      2 / width, 0, 0,
+      0, -2 / height, 0,
+      -1, 1, 1
+    ];
+  },
+};
 
 var m4 = {
   translate: function(tx, ty, tz) {
@@ -1388,6 +1465,73 @@ var m4 = {
     ];
   },
 };
+
+function drawImage(
+    tex, texWidth, texHeight,
+    srcX, srcY, srcWidth, srcHeight,
+    dstX, dstY, dstWidth, dstHeight) {
+  if (dstX === undefined) {
+    dstX = srcX;
+    srcX = 0;
+  }
+  if (dstY === undefined) {
+    dstY = srcY;
+    srcY = 0;
+  }
+  if (srcWidth === undefined) {
+    srcWidth = texWidth;
+  }
+  if (srcHeight === undefined) {
+    srcHeight = texHeight;
+  }
+  if (dstWidth === undefined) {
+    dstWidth = srcWidth;
+    srcWidth = texWidth;
+  }
+  if (dstHeight === undefined) {
+    dstHeight = srcHeight;
+    srcHeight = texHeight;
+  }
+ 
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+ 
+ // ...
+ 
+  // this matirx will convert from pixels to clip space
+  var projectionMatrix = m3.projection(canvas.width, canvas.height, 1);
+ 
+  // this matrix will scale our 1 unit quad
+  // from 1 unit to dstWidth, dstHeight units
+  var scaleMatrix = m4.scaling(dstWidth, dstHeight, 1);
+ 
+  // this matrix will translate our quad to dstX, dstY
+  var translationMatrix = m4.translation(dstX, dstY, 0);
+ 
+  // multiply them all togehter
+  var matrix = m4.multiply(translationMatrix, scaleMatrix);
+  matrix = m4.multiply(projectionMatrix, matrix);
+ 
+  // Set the matrix.
+  gl.uniformMatrix4fv(matrixLocation, false, matrix);
+ 
+  // Because texture coordinates go from 0 to 1
+  // and because our texture coordinates are already a unit quad
+  // we can select an area of the texture by scaling the unit quad
+  // down
+  var texMatrix = m4.translation(srcX / texWidth, srcY / texHeight, 0);
+  texMatrix = m4.scale(texMatrix, srcWidth / texWidth, srcHeight / texHeight, 1);
+ 
+  // Set the texture matrix.
+  gl.uniformMatrix4fv(textureMatrixLocation, false, texMatrix);
+ 
+  // Tell the shader to get the texture from texture unit 0
+  gl.uniform1i(textureLocation, 0);
+ 
+  // draw the quad (2 triangles, 6 vertices)
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+
 
 return {
     renderer: function(container, image, imagetype, dynamic) {

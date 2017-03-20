@@ -642,7 +642,7 @@ function onDocumentMouseDown(event) {
     if (config.hotSpotDebug) {
         var coords = mouseEventToCoords(event);
         //pitch = coords[0];
-    	// round to 2 decimal places for easier legibility
+    	// MCG round to 2 decimal places for easier legibility
         var pitch = parseFloat(Math.round(coords[0] * 100) / 100).toFixed(2);
         var yaw = parseFloat(Math.round(coords[1] * 100) / 100).toFixed(2);
         var centerPitch = parseFloat(Math.round(config.pitch * 100) / 100).toFixed(2);
@@ -1714,6 +1714,39 @@ function destroyHotSpots() {
  * @private
  */
 function renderHotSpot(hs) {
+	if (config.type == 'photo') {
+        hs.div.style.visibility = 'visible';
+        
+    var hsPitchRad = hs.pitch * Math.PI / 180,
+        hsPitchRad = hs.pitch * Math.PI / 180,
+        configPitchRad = config.pitch * Math.PI / 180,
+        configPitchRad = config.pitch * Math.PI / 180,
+        yawRad = (-hs.yaw + config.yaw) * Math.PI / 180,
+        hfovRad = config.hfov * Math.PI / 360;
+
+        var canvas = renderer.getCanvas(),
+            canvasWidth = canvas.width / (window.devicePixelRatio || 1),
+            canvasHeight = canvas.height / (window.devicePixelRatio || 1),
+            aspectRatio = canvasWidth / canvasHeight,
+            vfov = config.hfov / aspectRatio;
+            
+        var pixelsPerDegree = canvasWidth / config.hfov;
+        var coord = [pixelsPerDegree * (-config.yaw + hs.yaw),
+            pixelsPerDegree * (config.pitch + hs.pitch)];
+        
+        // Apply transform
+//         coord[0] += (canvasWidth - hs.div.offsetWidth) / 2;
+//         coord[1] += (canvasHeight - hs.div.offsetHeight) / 2;
+//        var transform = 'translate(' + coord[0] + 'px, ' + coord[1] +
+//            'px) translateZ(9999px) rotate(' + config.roll + 'deg)';
+        var transform = 'translate(' + coord[0] + 'px, ' + coord[1] +
+            'px) rotate(' + config.roll + 'deg)';
+        hs.div.style.webkitTransform = transform;
+        hs.div.style.MozTransform = transform;
+        hs.div.style.transform = transform;
+	} else {
+	
+
     var hsPitchSin = Math.sin(hs.pitch * Math.PI / 180),
         hsPitchCos = Math.cos(hs.pitch * Math.PI / 180),
         configPitchSin = Math.sin(config.pitch * Math.PI / 180),
@@ -1748,6 +1781,7 @@ function renderHotSpot(hs) {
         hs.div.style.webkitTransform = transform;
         hs.div.style.MozTransform = transform;
         hs.div.style.transform = transform;
+    }
     }
 }
 
