@@ -67,7 +67,7 @@ function Renderer(container) {
             _imageType = 'equirectangular';
 
         if (_imageType != 'equirectangular' && _imageType != 'cubemap' &&
-            _imageType != 'multires' && _imageType != 'photo') {
+            _imageType != 'multires' && _imageType != 'photo' && _imageType != 'cylindrical') {
             console.log('Error: invalid image type specified!');
             throw {type: 'config error'};
         }
@@ -271,7 +271,7 @@ function Renderer(container) {
         vs = gl.createShader(gl.VERTEX_SHADER);
         var vertexSrc = v;
         if (imageType == 'photo') {
-//            vertexSrc = vPhoto;
+            vertexSrc = vPhoto;
         }
 
         if (imageType == 'multires') {
@@ -283,9 +283,10 @@ function Renderer(container) {
         // Create fragment shader
         fs = gl.createShader(gl.FRAGMENT_SHADER);
         var fragmentSrc = fragEquirectangular;
-        if (imageType == 'photo') {
+        if (imageType == 'cylindrical') {
+        	fragmentSrc = fragCylindrical;
+        } else if (imageType == 'photo') {
         	fragmentSrc = fragPhoto;
-//            fragmentSrc = fragMulti;
         } else if (imageType == 'cubemap') {
             glBindType = gl.TEXTURE_CUBE_MAP;
             fragmentSrc = fragCube;
@@ -347,7 +348,7 @@ function Renderer(container) {
 			gl.uniform1f(program.vo, voffset / Math.PI * 2);
 
 			// Set background color
-			if (imageType == 'equirectangular') {
+			if (imageType == 'equirectangular' || imageType == 'cylindrical') {
 				program.backgroundColor = gl.getUniformLocation(program, 'u_backgroundColor');
 				var color = params.backgroundColor ? params.backgroundColor : [0, 0, 0];
 				gl.uniform4fv(program.backgroundColor, color.concat([1]));
@@ -1173,19 +1174,31 @@ function Renderer(container) {
 }
 
 // Vertex shader for photo
+// var vPhoto = [
+// 'attribute vec4 a_position;',
+// 'attribute vec2 a_texcoord;',
+//  
+// 'uniform mat4 u_matrix;',
+// 'uniform mat4 u_textureMatrix;',
+//  
+// 'varying vec2 v_texcoord;',
+//  
+// 'void main() {',
+//    'gl_Position = u_matrix * a_position;',
+//    'v_texcoord = (u_textureMatrix * vec4(a_texcoord, 0, 1)).xy;',
+// '} ',
+// ].join('');
 var vPhoto = [
-'attribute vec4 a_position;',
-'attribute vec2 a_texcoord;',
- 
-'uniform mat4 u_matrix;',
-'uniform mat4 u_textureMatrix;',
- 
-'varying vec2 v_texcoord;',
- 
+'attribute vec2 a_texCoord;',
+'varying vec2 v_texCoord;',
+
 'void main() {',
-   'gl_Position = u_matrix * a_position;',
-   'v_texcoord = (u_textureMatrix * vec4(a_texcoord, 0, 1)).xy;',
-'} ',
+    // Set position
+    'gl_Position = vec4(a_texCoord, 0.0, 1.0);',
+    
+    // Pass the coordinates to the fragment shader
+    'v_texCoord = a_texCoord;',
+'}'
 ].join('');
 
 // Vertex shader for equirectangular and cube
@@ -1262,7 +1275,9 @@ var fragEquiCubeBase = [
     'float a = u_f * costheta - rot_y * sintheta;',
     'float root = sqrt(rot_x * rot_x + a * a);',
     'float lambda = atan(rot_x / root, a / root) + u_psi;',
-    'float phi = atan((rot_y * costheta + u_f * sintheta) / root);',
+//     'float phi = atan((rot_y * costheta + u_f * sintheta) / root);',
+    'float tanphi = (rot_y * costheta + u_f * sintheta) / root;',
+    'float phi = atan(tanphi);',
 ].join('\n');
 
 // Fragment shader
@@ -1310,7 +1325,27 @@ var fragPhoto = fragEquiCubeBase + [
     'lambda = mod(lambda + PI, PI * 2.0) - PI;',
 
 //    'vec2 coord = v_texCoord;',
-    'vec2 coord = vec2(v_texCoord.x / u_f + u_psi, v_texCoord.y / u_f + u_theta);',
+//     'vec2 coord = vec2(v_texCoord.x  + u_psi, v_texCoord.y  + u_theta);',
+   'vec2 coord = vec2(v_texCoord.x / u_f + u_psi, v_texCoord.y / u_f + u_theta);',
+
+    // Look up color from texture
+    // Map from [-1,1] to [0,1] and flip y-axis
+    'if(coord.x < -u_h || coord.x > u_h || coord.y < -u_v + u_vo || coord.y > u_v + u_vo)',
+        'gl_FragColor = u_backgroundColor;',
+    'else',
+//         'gl_FragColor = texture2D(u_image, vec2((coord.x + u_h) / (u_h * 2.0), (-coord.y + u_v + u_vo) / (u_v * 2.0)));',
+        	'gl_FragColor = texture2D(u_image, vec2((coord.x + u_h) / (u_h * 2.0), (-coord.y + u_v + u_vo) / (u_v * 2.0)));',
+
+'}'
+].join('\n');
+
+// Fragment shader
+var fragCylindrical = fragEquiCubeBase + [
+    // Wrap image
+    'lambda = mod(lambda + PI, PI * 2.0) - PI;',
+
+    // Map texture to cylinder
+    'vec2 coord = vec2(lambda / PI, tanphi / (PI / 2.0));',
 
     // Look up color from texture
     // Map from [-1,1] to [0,1] and flip y-axis
@@ -1318,9 +1353,10 @@ var fragPhoto = fragEquiCubeBase + [
         'gl_FragColor = u_backgroundColor;',
     'else',
         'gl_FragColor = texture2D(u_image, vec2((coord.x + u_h) / (u_h * 2.0), (-coord.y + u_v + u_vo) / (u_v * 2.0)));',
-
 '}'
 ].join('\n');
+
+
 
 // Fragment Shader
 // var fragPhoto = [

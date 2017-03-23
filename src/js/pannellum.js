@@ -1738,12 +1738,12 @@ function renderHotSpot(hs) {
             vfov = config.hfov / aspectRatio;
             
         var pixelsPerDegree = canvasWidth / config.hfov;
-        var coord = [pixelsPerDegree * (-config.yaw + hs.yaw),
+        var coord = [pixelsPerDegree * (config.yaw + hs.yaw),
             pixelsPerDegree * (config.pitch + hs.pitch)];
         
         // Apply transform
-//         coord[0] += (canvasWidth - hs.div.offsetWidth) / 2;
-//         coord[1] += (canvasHeight - hs.div.offsetHeight) / 2;
+        coord[0] += (canvasWidth - hs.div.offsetWidth) / 2;
+        coord[1] += (canvasHeight - hs.div.offsetHeight) / 2;
 //        var transform = 'translate(' + coord[0] + 'px, ' + coord[1] +
 //            'px) translateZ(9999px) rotate(' + config.roll + 'deg)';
         var transform = 'translate(' + coord[0] + 'px, ' + coord[1] +
