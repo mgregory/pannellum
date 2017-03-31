@@ -641,8 +641,17 @@ function onDocumentMouseDown(event) {
     // Log pitch / yaw of mouse click when debugging / placing hot spots
     if (config.hotSpotDebug) {
         var coords = mouseEventToCoords(event);
-        console.log('Pitch: ' + coords[0] + ', Yaw: ' + coords[1] + ', Center Pitch: ' +
-            config.pitch + ', Center Yaw: ' + config.yaw + ', HFOV: ' + config.hfov);
+        //pitch = coords[0];
+    	// MCG round to 2 decimal places for easier legibility
+        var pitch = parseFloat(Math.round(coords[0] * 100) / 100).toFixed(2);
+        var yaw = parseFloat(Math.round(coords[1] * 100) / 100).toFixed(2);
+        var centerPitch = parseFloat(Math.round(config.pitch * 100) / 100).toFixed(2);
+        var centerYaw = parseFloat(Math.round(config.yaw * 100) / 100).toFixed(2);
+        
+        console.log('Pitch: ' + pitch + ', Yaw: ' + yaw + ', Center Pitch: ' +
+            centerPitch + ', Center Yaw: ' + centerYaw + ', HFOV: ' + config.hfov);
+//         console.log('Pitch: ' + coords[0] + ', Yaw: ' + coords[1] + ', Center Pitch: ' +
+//             config.pitch + ', Center Yaw: ' + config.yaw + ', HFOV: ' + config.hfov);
     }
     
     // Turn off auto-rotation if enabled
@@ -690,20 +699,41 @@ function onDocumentDoubleClick(event) {
  * @returns {number[]} [pitch, yaw]
  */
 function mouseEventToCoords(event) {
-    var pos = mousePosition(event);
-    var canvas = renderer.getCanvas();
-    var canvasWidth = canvas.width / (window.devicePixelRatio || 1),
-        canvasHeight = canvas.height / (window.devicePixelRatio || 1);
-    var x = pos.x / canvasWidth * 2 - 1;
-    var y = (1 - pos.y / canvasHeight * 2) * canvasHeight / canvasWidth;
-    var focal = 1 / Math.tan(config.hfov * Math.PI / 360);
-    var s = Math.sin(config.pitch * Math.PI / 180);
-    var c = Math.cos(config.pitch * Math.PI / 180);
-    var a = focal * c - y * s;
-    var root = Math.sqrt(x*x + a*a);
-    var pitch = Math.atan((y * c + focal * s) / root) * 180 / Math.PI;
-    var yaw = Math.atan2(x / root, a / root) * 180 / Math.PI + config.yaw;
-    return [pitch, yaw];
+	var pos = mousePosition(event);
+	var canvas = renderer.getCanvas();
+	var canvasWidth = canvas.width / (window.devicePixelRatio || 1),
+		canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+	var x = pos.x / canvasWidth * 2 - 1;
+	var y = (1 - pos.y / canvasHeight * 2) * canvasHeight / canvasWidth;
+	
+	if (config.type == 'photo') {
+        var image = renderer.getImage();
+        if (image != undefined) {
+		var imageWidth = image.naturalWidth;
+		var imageHeight = image.naturalHeight;
+		var imgAspect = imageWidth / imageHeight;
+		var imgWidthDeg = 100.0;
+		var imgHeightDeg = imgWidthDeg / imgAspect;
+		var scale = imgWidthDeg / config.hfov;
+		var vfov = config.hfov / (canvas.width / canvas.height);
+		var pitch = pos.y / canvasHeight * vfov - (vfov/2) - config.pitch;
+		pitch = pitch * -1;
+		var yaw = pos.x / canvasWidth * config.hfov - (config.hfov/2) + config.yaw;
+		} else {
+			pitch = x;
+			yaw = y;
+		}
+    	return [pitch, yaw];
+	} else {
+		var focal = 1 / Math.tan(config.hfov * Math.PI / 360);
+		var s = Math.sin(config.pitch * Math.PI / 180);
+		var c = Math.cos(config.pitch * Math.PI / 180);
+		var a = focal * c - y * s;
+		var root = Math.sqrt(x*x + a*a);
+		var pitch = Math.atan((y * c + focal * s) / root) * 180 / Math.PI;
+		var yaw = Math.atan2(x / root, a / root) * 180 / Math.PI + config.yaw;
+    	return [pitch, yaw];
+    }
 }
 
 /**
@@ -792,6 +822,7 @@ function onDocumentTouchStart(event) {
     onPointerDownYaw = config.yaw;
     onPointerDownPitch = config.pitch;
 
+    fireEvent('touchstart', event);
     animateInit();
 }
 
@@ -802,6 +833,10 @@ function onDocumentTouchStart(event) {
  * @param {TouchEvent} event - Document touch move event.
  */
 function onDocumentTouchMove(event) {
+    if (!config.draggable) {
+        return;
+    }
+
     // Override default action
     event.preventDefault();
     if (loaded) {
@@ -818,7 +853,7 @@ function onDocumentTouchMove(event) {
             clientY += (pos1.y - pos0.y) * 0.5;
             var clientDist = Math.sqrt((pos0.x - pos1.x) * (pos0.x - pos1.x) +
                                        (pos0.y - pos1.y) * (pos0.y - pos1.y));
-            setHfov(config.hfov + (onPointerDownPointerDist - clientDist) * 0.1);
+            setHfov(config.hfov + (onPointerDownPointerDist - clientDist) * 0.3);
             onPointerDownPointerDist = clientDist;
         }
 
@@ -852,6 +887,8 @@ function onDocumentTouchEnd() {
     }
     onPointerDownPointerDist = -1;
     latestInteraction = Date.now();
+
+    fireEvent('touchend', event);
 }
 
 var pointerIDs = [],
@@ -880,7 +917,8 @@ function onDocumentPointerMove(event) {
     if (event.pointerType == 'touch') {
         for (var i = 0; i < pointerIDs.length; i++) {
             if (event.pointerId == pointerIDs[i]) {
-                pointerCoordinates[i] = {clientX: event.clientX, clientY: event.clientY};
+                pointerCoordinates[i].clientX = event.clientX;
+                pointerCoordinates[i].clientY = event.clientY;
                 event.targetTouches = pointerCoordinates;
                 onDocumentTouchMove(event);
                 //event.preventDefault();
@@ -1705,6 +1743,57 @@ function destroyHotSpots() {
  * @private
  */
 function renderHotSpot(hs) {
+	if (config.type == 'photo') {
+        hs.div.style.visibility = 'visible';
+        var image = renderer.getImage();
+        
+//     var hsPitchRad = hs.pitch * Math.PI / 180,
+//         configPitchRad = config.pitch * Math.PI / 180,
+//         configPitchRad = config.pitch * Math.PI / 180,
+//         yawRad = (-hs.yaw + config.yaw) * Math.PI / 180,
+//         hfovRad = config.hfov * Math.PI / 360;
+
+	var canvas = renderer.getCanvas(),
+		canvasWidth = canvas.width / (window.devicePixelRatio || 1),
+		canvasHeight = canvas.height / (window.devicePixelRatio || 1),
+		aspectRatio = canvasWidth / canvasHeight,
+		vfov = config.hfov / aspectRatio;
+		
+		if (image != undefined) {
+			var imageWidth = image.naturalWidth;
+			var imageHeight = image.naturalHeight;
+			var imgAspect = imageWidth / imageHeight;
+			var hfovdeg = config.hfov;
+			var imgWidthDeg = 100.0;
+			var yawdeg = (-config.yaw + hs.yaw);
+			var pitchdeg = (-config.pitch + hs.pitch);
+			var scale = imgWidthDeg / hfovdeg;
+		
+			var offsetX = yawdeg / imgWidthDeg * canvas.width * scale / (window.devicePixelRatio || 1);
+			var offsetY = pitchdeg / imgWidthDeg * imgAspect * canvas.height * scale / (window.devicePixelRatio || 1);
+		
+			// position in viewport
+			var dstX = 0 + offsetX;
+			var dstY = 0 - offsetY;
+		}
+	  
+		var coord = [dstX, dstY];
+		coord[0] += (canvasWidth - hs.div.offsetWidth) / 2;
+		coord[1] += (canvasHeight - hs.div.offsetHeight) / 2;
+	
+		// Apply transform
+	//         coord[0] += (canvasWidth - hs.div.offsetWidth) / 2;
+	//         coord[1] += (canvasHeight - hs.div.offsetHeight) / 2;
+	//        var transform = 'translate(' + coord[0] + 'px, ' + coord[1] +
+	//            'px) translateZ(9999px) rotate(' + config.roll + 'deg)';
+		var transform = 'translate(' + coord[0] + 'px, ' + coord[1] +
+			'px) rotate(' + config.roll + 'deg)';
+		hs.div.style.webkitTransform = transform;
+		hs.div.style.MozTransform = transform;
+		hs.div.style.transform = transform;
+	} else {
+	
+
     var hsPitchSin = Math.sin(hs.pitch * Math.PI / 180),
         hsPitchCos = Math.cos(hs.pitch * Math.PI / 180),
         configPitchSin = Math.sin(config.pitch * Math.PI / 180),
@@ -1739,6 +1828,7 @@ function renderHotSpot(hs) {
         hs.div.style.webkitTransform = transform;
         hs.div.style.MozTransform = transform;
         hs.div.style.transform = transform;
+    }
     }
 }
 
@@ -1939,6 +2029,11 @@ function processOptions(isPreview) {
         else
             delete config.author;
     }
+    
+    if (config.type == 'photo') {
+    	stopOrientation();
+    }
+
 }
 
 /**
@@ -2166,6 +2261,9 @@ function stopOrientation() {
  * @private
  */
 function startOrientation() {
+	if (config.type == 'photo') {
+		return
+	}
     orientation = true;
     window.addEventListener('deviceorientation', orientationListener);
     controls.orientation.classList.add('pnlm-orientation-button-active');
