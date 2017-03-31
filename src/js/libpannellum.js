@@ -21,6 +21,8 @@
  * THE SOFTWARE.
  */
 
+
+
 window.libpannellum = (function(window, document, undefined) {
 
 'use strict';
@@ -240,7 +242,7 @@ function Renderer(container) {
         
         // Make sure image isn't too big
         var width, maxWidth;
-        if (imageType == 'equirectangular' || imageType == 'photo') {
+        if (imageType == 'equirectangular' || imageType == 'photo' || _imageType == 'cylindrical') {
             width = Math.max(image.width, image.height);
             maxWidth = gl.getParameter(gl.MAX_TEXTURE_SIZE);
             if (width > maxWidth) {
@@ -320,8 +322,22 @@ function Renderer(container) {
         gl.enableVertexAttribArray(program.texCoordLocation);
 
         if (imageType != 'multires') {
-//  			if (imageType == 'photo') {
-//  			}
+			if (imageType == 'photo') {			
+				//  look up where the vertex data needs to go.
+				program.positionLocation = gl.getAttribLocation(program, "a_position");
+				program.matrixLocation = gl.getUniformLocation(program, "u_matrix");
+				program.textureMatrixLocation = gl.getUniformLocation(program, "u_textureMatrix");
+
+				// Create a buffer.
+				var positionBuffer = gl.createBuffer();
+				gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+				gl.enableVertexAttribArray(program.positionLocation);
+				gl.vertexAttribPointer(program.positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+				// Put a unit quad in the buffer
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1,1,1,1,-1,-1,1,1,-1,-1,-1]), gl.STATIC_DRAW);
+// 				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,1,1,1,1,0,0,1,1,0,0,0]), gl.STATIC_DRAW);
+			}		
 			// Provide texture coordinates for rectangle
 			if (!texCoordBuffer)
 				texCoordBuffer = gl.createBuffer();
@@ -348,11 +364,12 @@ function Renderer(container) {
 			gl.uniform1f(program.vo, voffset / Math.PI * 2);
 
 			// Set background color
-			if (imageType == 'equirectangular' || imageType == 'cylindrical') {
+			if (imageType == 'equirectangular' || imageType == 'cylindrical' || imageType == 'photo') {
 				program.backgroundColor = gl.getUniformLocation(program, 'u_backgroundColor');
 				var color = params.backgroundColor ? params.backgroundColor : [0, 0, 0];
 				gl.uniform4fv(program.backgroundColor, color.concat([1]));
 			}
+			
 
 			// Create texture
 			program.texture = gl.createTexture();
@@ -377,7 +394,7 @@ function Renderer(container) {
 			gl.texParameteri(glBindType, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 			gl.texParameteri(glBindType, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 			gl.texParameteri(glBindType, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        } else {
+        } else { // imageType is multires
             // Look up vertex coordinates location
             program.vertPosLocation = gl.getAttribLocation(program, 'a_vertCoord');
             gl.enableVertexAttribArray(program.vertPosLocation);
@@ -544,6 +561,94 @@ function Renderer(container) {
             // Calculate focal length from vertical field of view
             var vfov = 2 * Math.atan(Math.tan(hfov * 0.5) / (canvas.width / canvas.height));
             focal = 1 / Math.tan(vfov * 0.5);
+            
+            
+            
+            if (imageType == 'photo') {
+				var w = image.width;
+				var h = image.height;
+				var imgAspect = w / h;
+				
+				var hfovdeg = hfov / (Math.PI / 180);
+				var yawdeg = yaw / (Math.PI / 180);
+				var pitchdeg = pitch / (Math.PI / 180);
+				var scale = 100.0 / hfovdeg;
+				
+				var offsetX = yawdeg / 100 * canvas.width * scale;
+				var offsetY = pitchdeg / 100 * imgAspect * canvas.height * scale;
+				
+				var halfCanvasWidth = canvas.width / 2.0;
+				var halfCanvasHeight = canvas.height / 2;
+				
+				// size on viewport
+				var dstWidth = canvas.width;
+				var dstHeight = canvas.width / imgAspect;
+				dstWidth = dstWidth * scale;
+				dstHeight = dstHeight * scale;
+
+				var halfImageWidth = dstWidth / 2.0;
+				var halfImageHeight = dstHeight / 2.0;
+
+				// position in viewport
+				var dstX = 0 - offsetX + halfCanvasWidth - halfImageWidth;
+				var dstY = 0 + offsetY + halfCanvasHeight - halfImageHeight;
+
+
+				// this matrix will convert from pixels to clip space
+				var matrix = m4.orthographic(0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
+				// this matrix will translate our quad to dstX, dstY
+				matrix = m4.translate(matrix, dstX, dstY, 0);
+
+				// this matrix will scale our 1 unit quad
+				// from 1 unit to texWidth, texHeight units
+				matrix = m4.scale(matrix, dstWidth, dstHeight, 1);
+
+// tests				
+// 				matrix = m4.identity();
+// 				matrix = m4.orthographic(0, gl.canvas.width, gl.canvas.height, 0, -1, 1);
+// 				matrix = m4.scale(matrix, dstWidth, dstHeight, 1);
+// 				matrix = m4.translate(matrix, -yaw * 6, -pitch*4, 0);
+
+				// Set the matrix.
+				gl.uniformMatrix4fv(program.matrixLocation, false, matrix);
+				
+				
+
+				// image size
+				var texWidth = w;
+				var texHeight = h;
+
+				// position in image
+				var srcX = 0;
+				var srcY = 0;
+
+				// amount of image to draw
+				var srcWidth = w;
+				var srcHeight = h;
+				// rotation
+				var srcRotation = 0;
+
+				// just like a 2d projection matrix except in texture space (0 to 1)
+				// instead of clip space. This matrix puts us in pixel space.
+				var texMatrix = m4.scaling(1 / texWidth, 1 / texHeight, 1);
+
+				// We need to pick a place to rotate around
+				// We'll move to the middle, rotate, then move back
+				var texMatrix = m4.translate(texMatrix, texWidth * 0.5, texHeight * 0.5, 0);
+				var texMatrix = m4.zRotate(texMatrix, srcRotation);
+				var texMatrix = m4.translate(texMatrix, texWidth * -0.5, texHeight * -0.5, 0);
+
+				// because we're in pixel space
+				// the scale and translation are now in pixels
+				var texMatrix = m4.translate(texMatrix, srcX, srcY, 0);
+				var texMatrix = m4.scale(texMatrix, srcWidth, srcHeight, 1);
+				// Set the texture matrix.
+				gl.uniformMatrix4fv(program.textureMatrixLocation, false, texMatrix);
+
+			}
+
+			
+////
 
             // Pass psi, theta, roll, and focal length
             gl.uniform1f(program.psi, yaw);
@@ -553,7 +658,7 @@ function Renderer(container) {
             
             if (dynamic === true) {
                 // Update texture if dynamic
-                if (imageType == 'equirectangular') {
+                if (imageType == 'equirectangular' || _imageType == 'cylindrical') {
                     gl.bindTexture(gl.TEXTURE_2D, program.texture);
                     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, image);
                 }
@@ -642,6 +747,11 @@ function Renderer(container) {
      */
     this.getCanvas = function() {
         return canvas;
+    };
+    
+    
+    this.getImage = function() {
+    	return image;
     };
     
     /**
@@ -1173,34 +1283,6 @@ function Renderer(container) {
     }
 }
 
-// Vertex shader for photo
-// var vPhoto = [
-// 'attribute vec4 a_position;',
-// 'attribute vec2 a_texcoord;',
-//  
-// 'uniform mat4 u_matrix;',
-// 'uniform mat4 u_textureMatrix;',
-//  
-// 'varying vec2 v_texcoord;',
-//  
-// 'void main() {',
-//    'gl_Position = u_matrix * a_position;',
-//    'v_texcoord = (u_textureMatrix * vec4(a_texcoord, 0, 1)).xy;',
-// '} ',
-// ].join('');
-var vPhoto = [
-'attribute vec2 a_texCoord;',
-'varying vec2 v_texCoord;',
-
-'void main() {',
-    // Set position
-    'gl_Position = vec4(a_texCoord, 0.0, 1.0);',
-    
-    // Pass the coordinates to the fragment shader
-    'v_texCoord = a_texCoord;',
-'}'
-].join('');
-
 // Vertex shader for equirectangular and cube
 var v = [
 'attribute vec2 a_texCoord;',
@@ -1320,24 +1402,23 @@ var fragMulti = [
 
 
 // Fragment shader
-var fragPhoto = fragEquiCubeBase + [
-    // Wrap image
-    'lambda = mod(lambda + PI, PI * 2.0) - PI;',
-
-//    'vec2 coord = v_texCoord;',
-//     'vec2 coord = vec2(v_texCoord.x  + u_psi, v_texCoord.y  + u_theta);',
-   'vec2 coord = vec2(v_texCoord.x / u_f + u_psi, v_texCoord.y / u_f + u_theta);',
-
-    // Look up color from texture
-    // Map from [-1,1] to [0,1] and flip y-axis
-    'if(coord.x < -u_h || coord.x > u_h || coord.y < -u_v + u_vo || coord.y > u_v + u_vo)',
-        'gl_FragColor = u_backgroundColor;',
-    'else',
+// var fragPhoto = fragEquiCubeBase + [
+//     // Wrap image
+//     'lambda = mod(lambda + PI, PI * 2.0) - PI;',
+// 
+// //    'vec2 coord = v_texCoord;',
+// //     'vec2 coord = vec2(v_texCoord.x  + u_psi, v_texCoord.y  + u_theta);',
+//    'vec2 coord = vec2(v_texCoord.x / u_f + u_psi, v_texCoord.y / u_f + u_theta);',
+// 
+//     // Look up color from texture
+//     // Map from [-1,1] to [0,1] and flip y-axis
+//     'if(coord.x < -u_h || coord.x > u_h || coord.y < -u_v + u_vo || coord.y > u_v + u_vo)',
+//         'gl_FragColor = u_backgroundColor;',
+//     'else',
 //         'gl_FragColor = texture2D(u_image, vec2((coord.x + u_h) / (u_h * 2.0), (-coord.y + u_v + u_vo) / (u_v * 2.0)));',
-        	'gl_FragColor = texture2D(u_image, vec2((coord.x + u_h) / (u_h * 2.0), (-coord.y + u_v + u_vo) / (u_v * 2.0)));',
-
-'}'
-].join('\n');
+// 
+// '}'
+// ].join('\n');
 
 // Fragment shader
 var fragCylindrical = fragEquiCubeBase + [
@@ -1356,217 +1437,43 @@ var fragCylindrical = fragEquiCubeBase + [
 '}'
 ].join('\n');
 
+var vPhoto = [
+'attribute vec4 a_position;',
+'attribute vec2 a_texCoord;',
+
+'uniform mat4 u_matrix;',
+'uniform mat4 u_textureMatrix;',
+
+'varying vec2 v_texCoord;',
+
+'void main() {',
+   'gl_Position = u_matrix * a_position;',
+    'v_texCoord = (u_textureMatrix * vec4(a_texCoord, 0.0, 1.0)).xy;',
+//     'v_texCoord = a_texCoord;',
+// 'gl_Position = vec4(a_texCoord, 0.0, 1.0);',
+'}'
+].join('\n');
+
+var fragPhoto = [
+'precision mediump float;',
+'uniform vec4 u_backgroundColor;',
+
+'varying vec2 v_texCoord;',
+
+'uniform sampler2D u_texture;',
 
 
-// Fragment Shader
-// var fragPhoto = [
-// 'varying mediump vec2 v_texCoord;',
-// 'uniform sampler2D u_sampler;',
-// 'uniform mediump vec4 u_color;',
-// 
-// 'void main(void) {',
-//     Look up color from texture
-//     'gl_FragColor = texture2D(u_sampler, v_texCoord);',
-//    'gl_FragColor = u_color;',
-// '}'
-// ].join('');
-
-
-// Fragment Shader
-// var fragPhoto = [
-// 	'precision mediump float;',
-//   
-// 	'varying vec2 v_texcoord;',
-//   
-// 	'uniform sampler2D u_texture;',
-//   
-// 	'void main() {',
-// 	'gl_FragColor = texture2D(u_texture, v_texcoord);',
-// 	'}'
-// ].join('');
-
-
-// Code from WebGLFundamentals.org
-
-var m3 = {
-  identity: function() {
-    return [
-      1, 0, 0,
-      0, 1, 0,
-      0, 0, 1,
-    ];
-  },
-  
-  translation: function(tx, ty) {
-    return [
-      1, 0, 0,
-      0, 1, 0,
-      tx, ty, 1,
-    ];
-  },
- 
-  rotation: function(angleInRadians) {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
-    return [
-      c,-s, 0,
-      s, c, 0,
-      0, 0, 1,
-    ];
-  },
- 
-  scaling: function(sx, sy) {
-    return [
-      sx, 0, 0,
-      0, sy, 0,
-      0, 0, 1,
-    ];
-  },
-  
-  projection: function(width, height) {
-    // Note: This matrix flips the Y axis so that 0 is at the top.
-    return [
-      2 / width, 0, 0,
-      0, -2 / height, 0,
-      -1, 1, 1
-    ];
-  },
-};
-
-var m4 = {
-  translate: function(tx, ty, tz) {
-    return [
-       1,  0,  0,  0,
-       0,  1,  0,  0,
-       0,  0,  1,  0,
-       tx, ty, tz, 1,
-    ];
-  },
- 
-  xRotation: function(angleInRadians) {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
- 
-    return [
-      1, 0, 0, 0,
-      0, c, s, 0,
-      0, -s, c, 0,
-      0, 0, 0, 1,
-    ];
-  },
- 
-  yRotation: function(angleInRadians) {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
- 
-    return [
-      c, 0, -s, 0,
-      0, 1, 0, 0,
-      s, 0, c, 0,
-      0, 0, 0, 1,
-    ];
-  },
- 
-  zRotation: function(angleInRadians) {
-    var c = Math.cos(angleInRadians);
-    var s = Math.sin(angleInRadians);
- 
-    return [
-       c, s, 0, 0,
-      -s, c, 0, 0,
-       0, 0, 1, 0,
-       0, 0, 0, 1,
-    ];
-  },
- 
-  scaling: function(sx, sy, sz) {
-    return [
-      sx, 0,  0,  0,
-      0, sy,  0,  0,
-      0,  0, sz,  0,
-      0,  0,  0,  1,
-    ];
-	},
-    
-    orthographic: function(left, right, bottom, top, near, far) {
-    return [
-      2 / (right - left), 0, 0, 0,
-      0, 2 / (top - bottom), 0, 0,
-      0, 0, 2 / (near - far), 0,
- 
-      (left + right) / (left - right),
-      (bottom + top) / (bottom - top),
-      (near + far) / (near - far),
-      1,
-    ];
-  },
-};
-
-function drawImage(
-    tex, texWidth, texHeight,
-    srcX, srcY, srcWidth, srcHeight,
-    dstX, dstY, dstWidth, dstHeight) {
-  if (dstX === undefined) {
-    dstX = srcX;
-    srcX = 0;
-  }
-  if (dstY === undefined) {
-    dstY = srcY;
-    srcY = 0;
-  }
-  if (srcWidth === undefined) {
-    srcWidth = texWidth;
-  }
-  if (srcHeight === undefined) {
-    srcHeight = texHeight;
-  }
-  if (dstWidth === undefined) {
-    dstWidth = srcWidth;
-    srcWidth = texWidth;
-  }
-  if (dstHeight === undefined) {
-    dstHeight = srcHeight;
-    srcHeight = texHeight;
-  }
- 
-  gl.bindTexture(gl.TEXTURE_2D, tex);
- 
- // ...
- 
-  // this matirx will convert from pixels to clip space
-  var projectionMatrix = m3.projection(canvas.width, canvas.height, 1);
- 
-  // this matrix will scale our 1 unit quad
-  // from 1 unit to dstWidth, dstHeight units
-  var scaleMatrix = m4.scaling(dstWidth, dstHeight, 1);
- 
-  // this matrix will translate our quad to dstX, dstY
-  var translationMatrix = m4.translation(dstX, dstY, 0);
- 
-  // multiply them all togehter
-  var matrix = m4.multiply(translationMatrix, scaleMatrix);
-  matrix = m4.multiply(projectionMatrix, matrix);
- 
-  // Set the matrix.
-  gl.uniformMatrix4fv(matrixLocation, false, matrix);
- 
-  // Because texture coordinates go from 0 to 1
-  // and because our texture coordinates are already a unit quad
-  // we can select an area of the texture by scaling the unit quad
-  // down
-  var texMatrix = m4.translation(srcX / texWidth, srcY / texHeight, 0);
-  texMatrix = m4.scale(texMatrix, srcWidth / texWidth, srcHeight / texHeight, 1);
- 
-  // Set the texture matrix.
-  gl.uniformMatrix4fv(textureMatrixLocation, false, texMatrix);
- 
-  // Tell the shader to get the texture from texture unit 0
-  gl.uniform1i(textureLocation, 0);
- 
-  // draw the quad (2 triangles, 6 vertices)
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
-}
-
+'void main() {',
+//   'if (v_texCoord.x < 0.0 ||',
+//       'v_texCoord.y < 0.0 ||',
+//       'v_texCoord.x > 1.0 ||',
+//       'v_texCoord.y > 1.0) {',
+//     'gl_FragColor = u_backgroundColor;',
+//     'return;',
+//   '}',
+  'gl_FragColor = texture2D(u_texture, v_texCoord);',
+'}'
+].join('\n');
 
 
 return {
