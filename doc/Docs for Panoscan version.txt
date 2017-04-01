@@ -1,9 +1,9 @@
-Supplemental documentation update of Pannellum for Panoscan
+Supplemental documentation of update of Pannellum for Panoscan
 
 In addition to the values for "type" of  equirectangular, cubemap, or multires, we now have cylindrical and photo.
 
-Cylindrical photos wil be partial panos and should have appropriate values for "haov" and "vaov".
-For panoramas made on iPhone to its greatest extent these will typically be "haov": 284.9, "vaov": 65.0
+Cylindrical photos will be partial panos in the vertical direction and should have appropriate values for "haov" and "vaov".
+For panoramas made on iPhone to its greatest rotation these will typically be "haov": 284.9, "vaov": 65.0
 
 Images of type photo will be presented without any 3d projection. The value hfov currently must be set to 100.0.
 Appropriate values for minYaw and maxYaw can be set to -55.0 and 55.0 respectively to prevent the image from scrolling off screen. minPitch and MaxPitch will depend on the aspect ratio of the image.

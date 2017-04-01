@@ -1,0 +1,399 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tour</title>
+    <link rel="stylesheet" href="css/pannellum.css"/>
+    
+    <script type="text/javascript" src="js/libpannellum.js"></script>
+    <script type="text/javascript" src="js/pannellum.js"></script>
+<script type="text/javascript" src="js/m4.js"></script>
+    
+<!-- 	<script type="text/javascript" src="https://cdn.pannellum.org/2.2/pannellum.js"></script> -->
+	
+    <style>
+    #panorama {
+        width: 600px;
+/*         width: 100%; */
+        height: 400px;
+/*         height: 100%; */
+    }
+    </style>
+</head>
+<body>
+
+<div id="panorama"></div>
+<script>
+pannellum.viewer('panorama', {   
+    "default": {
+//        "firstScene": "officecrop",
+        "firstScene": "map",
+       // "author": "Marty Gregory",
+        "sceneFadeDuration": 1000,
+        "autoLoad": true
+    },
+
+/*
+     * Uncomment the next line to print the coordinates of mouse clicks
+     * to the browser's developer console, which makes it much easier
+     * to figure out where to place hot spots. Always remove it when
+     * finished, though.
+     */
+    "hotSpotDebug": true,
+    
+		"scenes": {
+		
+			"map": {
+			"title": "Map",
+			"pitch":0,
+			"yaw": 0,
+			"hfov": 100,
+			"minPitch": -32.0,
+			"maxPitch": 32.0,
+			"minYaw": -55.0,
+			"maxYaw": 55.0,
+			"type": "photo",
+			"panorama":"Map.jpg",
+			"backgroundColor": [0,0,1],
+			"hotSpots": [
+				{
+					"pitch": 10,
+					"yaw": 26,
+					"type": "scene",
+					"text": "Living Room",
+					"sceneId": "livrm"
+				},
+				{
+					"pitch": -14,
+					"yaw": 18,
+					"type": "scene",
+					"text": "Kitchen",
+					"sceneId": "kitchen"
+				},
+				{
+					"pitch": 0,
+					"yaw": -30,
+					"type": "scene",
+					"text": "Master Bedroom",
+					"sceneId": "master"
+				},
+				{
+					"pitch": 14,
+					"yaw": -10,
+					"type": "scene",
+					"text": "Office",
+					"sceneId": "office"
+				}
+			]
+		},
+        
+			"boxwood": {
+			"title": "Boxwood",
+            "haov": 284.9,
+            "vaov": 65.0,
+			"pitch":0,
+			"yaw": 0,
+			"hfov": 100,
+			"minPitch": -32.0,
+			"maxPitch": 32.0,
+			"minYaw": -142.0,
+			"maxYaw": 142.0,
+			"minHfov": 40.0,
+			"maxHfov": 90.0,
+// 			"type": "equirectangular",
+			"type": "cylindrical",
+			"panorama":"BoxwoodPano sm.JPG",
+// 			"backgroundColor": [0,0,1],
+
+			"hotSpots": [
+                {
+                    "pitch": 0,
+                    "yaw": -31,
+                    "type": "scene",
+                    "text": "Kitchen",
+                    "sceneId": "boxwoodkitchen"
+                    
+                },
+                {
+                    "pitch": 4,
+                    "yaw": 102,
+                    "type": "scene",
+                    "text": "Ted's House",
+                    "sceneId": "livrm"
+                    
+                },
+                {
+                    "pitch": -18,
+                    "yaw": -50,
+                    "type": "scene",
+                    "text": "Map",
+                    "sceneId": "map"
+                    
+                }
+                ]
+			},
+			"boxwoodkitchen": {
+			"title": "Boxwood Kitchen",
+            "haov": 284.9,
+            "vaov": 65.0,
+			"pitch":0,
+			"yaw": 0,
+			"hfov": 100,
+			"minPitch": -32.0,
+			"maxPitch": 32.0,
+			"minYaw": -142.0,
+			"maxYaw": 142.0,
+			"minHfov": 40.0,
+			"maxHfov": 90.0,
+// 			"type": "equirectangular",
+			"type": "cylindrical",
+			"panorama":"BoxwoodPano2 sm.JPG",
+// 			"backgroundColor": [0,0,1],
+			"hotSpots": [
+                {
+                    "pitch": 0,
+                    "yaw": -40,
+                    "type": "scene",
+                    "text": "Living Room",
+                    "sceneId": "boxwood"
+                    
+                },
+                {
+                    "pitch": -00,
+                    "yaw": 0,
+                    "type": "scene",
+                    "text": "Map",
+                    "sceneId": "map"
+                    
+                }
+                ]
+			},
+
+			"balcony": {
+			"title": "Balcony",
+            "haov": 284.9,
+            "vaov": 65.0,
+			"pitch":0,
+			"yaw": 0,
+			"hfov": 100,
+			"type": "equirectangular",
+			"panorama":"IMG_2734_equi.jpg",
+			"backgroundColor": [0,0,1],
+
+			"hotSpots": [
+				{
+					"pitch": 0,
+					"yaw": 20,
+					"type": "scene",
+					"text": "Balcony (iPhone)",
+					"sceneId": "balcony"
+				}
+			]
+		},
+        
+        "livrm": {
+            "title": "Living Room",
+            "hfov": 110,
+            "pitch": 0,
+            "yaw": -100,
+            "type": "equirectangular",
+//             "panorama": "http://i.imgur.com/DrtTLK6.jpg",
+            "panorama": "LivRm sm.jpg",
+            
+            "hotSpots": [
+                 {
+                    "pitch": -8.5,
+                    "yaw": 27,
+                    "type": "scene",
+                    "text": "Marty's house",
+                    "sceneId": "boxwood"
+                },
+               {
+                    "pitch": 0,
+                    "yaw": -101,
+                    "type": "scene",
+                    "text": "Master Bedroom",
+                    "sceneId": "master"
+                },
+                {
+                    "pitch": 0,
+                    "yaw": -140,
+                    "type": "scene",
+                    "text": "Kitchen",
+                    "sceneId": "kitchen"
+                },
+                {
+                    "pitch": -25,
+                    "yaw": 150,
+                    "type": "scene",
+                    "text": "Office",
+                    "sceneId": "office"
+                },
+                {
+                    "pitch": 0,
+                    "yaw": 85,
+                    "type": "info",
+                    "text": "View",
+                    "URL": "LivView.jpg"
+                },
+                {
+                    "pitch": -90,
+                    "yaw": 0,
+                    "type": "scene",
+                    "text": "Map",
+                    "sceneId": "map"
+                    
+                }
+            ]
+        },
+
+        "master": {
+            "title": "Master Bedroom",
+            "hfov": 110,
+            "yaw": 5,
+            "type": "equirectangular",
+            //"panorama": "https://i.imgur.com/2qNsyyh.jpg",
+            "panorama": "Master sm.jpg",
+            "hotSpots": [
+                {
+                    "pitch": 0,
+                    "yaw": -109,
+                    "type": "scene",
+                    "text": "Living Room",
+                    "sceneId": "livrm",
+                    "targetYaw": 0,
+                    "targetPitch": 0
+                },
+                {
+                    "pitch": -90,
+                    "yaw": 0,
+                    "type": "scene",
+                    "text": "Map",
+                    "sceneId": "map"
+                    
+                }
+            ]
+        },
+
+        "kitchen": {
+            "title": "Kitchen",
+            "hfov": 110,
+            "yaw": 5,
+            "type": "equirectangular",
+            //"panorama": "https://i.imgur.com/2qNsyyh.jpg",
+            "panorama": "Kitchen sm.jpg",
+            "hotSpots": [
+                {
+                    "pitch": 0,
+                    "yaw": 80,
+                    "type": "scene",
+                    "text": "Living Room",
+                    "sceneId": "livrm",
+                    "targetYaw": 0,
+                    "targetPitch": 0
+                },
+                {
+                    "pitch": -90,
+                    "yaw": 0,
+                    "type": "scene",
+                    "text": "Map",
+                    "sceneId": "map"
+                    
+                }
+            ]
+        },
+        
+        "kitchencrop": {
+            "title": "Kitchen Cropped",
+            
+            "vaov": 146,
+             "vOffset": -17,
+//             "minPitch": -72,
+             "maxPitch": 56,
+            
+            "hfov": 110,
+            "yaw": 5,
+            "type": "equirectangular",
+            //"panorama": "https://i.imgur.com/2qNsyyh.jpg",
+            "panorama": "Kitchen Cropped.jpg",
+            "hotSpots": [
+                {
+                    "pitch": 0,
+                    "yaw": 80,
+                    "type": "scene",
+                    "text": "Living Room",
+                    "sceneId": "livrm",
+                    "targetYaw": 0,
+                    "targetPitch": 0
+                },
+                {
+                    "pitch": -90,
+                    "yaw": 0,
+                    "type": "scene",
+                    "text": "Map",
+                    "sceneId": "map"
+                    
+                }
+            ]
+        },
+        
+        "office": {
+            "title": "Office",            
+            "hfov": 110,
+            "yaw": 5,
+            "type": "equirectangular",
+            //"panorama": "https://i.imgur.com/2qNsyyh.jpg",
+            "panorama": "Office sm.jpg",
+            "hotSpots": [
+                {
+                    "pitch": 0,
+                    "yaw": 155,
+                    "type": "scene",
+                    "text": "Living Room",
+                    "sceneId": "livrm",
+                    "targetYaw": 0,
+                    "targetPitch": 0
+                },
+                {
+                    "pitch": -90,
+                    "yaw": 0,
+                    "type": "scene",
+                    "text": "Map",
+                    "sceneId": "map"
+                    
+                }
+            ]
+        },
+        
+        "officecrop": {
+            "title": "Office Cropped",
+            
+            "vaov": 120,
+//             "vOffset": -12,
+//             "minPitch": -72,
+//             "maxPitch": 48,
+            
+            "hfov": 110,
+            "yaw": 5,
+            "type": "equirectangular",
+            //"panorama": "https://i.imgur.com/2qNsyyh.jpg",
+            "panorama": "Office cropped.jpg",
+			"backgroundColor": [0,0,1],
+            "hotSpots": [
+                {
+                    "pitch": 0,
+                    "yaw": 155,
+                    "type": "scene",
+                    "text": "Living Room",
+                    "sceneId": "livrm",
+                    "targetYaw": 0,
+                    "targetPitch": 0
+                }
+            ]
+        }
+    }
+});
+</script>
+</body>
+</html>
